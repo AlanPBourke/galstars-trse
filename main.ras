@@ -1,0 +1,108 @@
+program C64Project;
+var
+	
+	RasterCount : byte;
+	Tempwork : byte;
+	StarfieldPtr : integer;
+	StarfieldPtr2 : integer;
+	StarfieldPtr3 : integer;
+	StarfieldPtr4 : integer;
+
+	const Star1Shape : byte = %00000011;
+	const Star2Shape : byte = %00001100; 
+	const Star3Shape : byte = %00110000;
+	const Star4Shape : byte = %11000000;
+	
+	const Border : address = $D020;
+	const Backgr : address = $D021;
+	
+	const RasterLine : address = $D012;
+	const CharSetLoc : address = $3000;
+	
+	const Star1Init  : address = $31D0;	// Init address for each star, CHAR_RAM plus offset
+	const Star1Limit : address = $3298;	// Limit for each star
+	const Star1Reset : address = $31D0;	// Reset address for each star
+
+	const Star2Init : address = $3298;
+	const Star2Limit : address = $3360; 	// Once limit is reached, they are reset
+	const Star2Reset : address = $3298;
+
+	const Star3Init : address = $3240;
+	const Star3Limit : address = $3298;
+	const Star3Reset : address = $31D0;
+
+	const Star4Init : address = $32E0;
+	const Star4Limit : address = $3360;
+	const Star4Reset : address = $3298;
+
+	const StaticStar1 : address = $3250; // 2 Locations for blinking static stars
+	const StaticStar2 : address = $31E0;
+
+	StarfieldRow : array[40] of byte = (058,092,073,064,091,062,093,081,066,094,086,059,079,087,080,071,076,067,082,095,100,078,099,060,075,063,084,065,083,096,068,088,074,061,090,098,085,101,097,077);
+	StarfieldColours : array[20] of byte = (14,10,12,15,14,13,12,11,10,14,14,10,14,15,14,13,12,11,10,12);
+	
+procedure CreateStarScreen();
+	var
+		currentchar : byte;
+		colourindex : byte;
+		offset : byte;
+		col : byte;
+		row : integer;
+		
+begin
+	
+	ScreenOff();	
+	
+	col := 0;
+	while col <= 39 do begin
+		
+		currentchar := StarfieldRow[col];
+		
+		row := 0;
+		
+		while row <= 23 do begin
+			
+			offset := (col + (row * 40));                   
+			screenmemory[offset] := currentchar;
+			
+			currentchar += 1;
+			
+			if currentchar = 83 then begin
+				currentchar := 58;
+			end;
+			
+			if currentchar = 108 then begin
+				currentchar := 83;
+			end;
+			
+			colormemory[offset] := StarfieldColours[colourindex];
+	
+			row += 1;
+			
+		end;
+		
+		colourindex += 1;
+		
+		if colourindex > 19 then begin
+			colourindex := 0;
+		end;
+		
+		col += 1;
+		
+	end;
+	
+	ScreenOn();
+	
+end;
+
+
+begin
+	
+	definescreen();
+	copycharsetfromrom(CharSetLoc);
+	// todo clear chars
+	CreateStarScreen();
+	Loop(); 
+	
+end.
+
