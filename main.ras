@@ -45,14 +45,17 @@ procedure CreateStarScreen();
 	var
 		currentchar : byte;
 		colourindex : byte;
-		offset : byte;
+		//offset : integer;
 		col : byte;
-		row : integer;
-		
+		row : byte;
+    	saddr : array[25] of integer;
+    	caddr : array[25] of integer;		
 begin
 	
-	ScreenOff();	
-	
+	//ScreenOff();	
+	CreateAddressTable( #saddr, $0400, 40, 25 );   // $0400 screen address, 40 characters per column, 25 rows
+    CreateAddressTable( #caddr, $D800, 40, 25 );   // $D800 color address, 40 characters per column, 25 rows
+	//https://retrocomputing.stackexchange.com/questions/7528/commodore-8-bit-character-sets/8278
 	col := 0;
 	while col <= 39 do begin
 		
@@ -60,46 +63,54 @@ begin
 		
 		row := 0;
 		
-		while row <= 23 do begin
+		while row <= 24 do begin
 			
-			offset := (col + (row * 40));                   
-			screenmemory[offset] := currentchar;
+			screenmemory := AddressTable( #saddr, col, row );
+			screenmemory[0] := currentchar;
 			
-			currentchar += 1;
+			inc(currentchar);
 			
+			// 83 = heart, 58 = colon
+			if currentchar = 108 then begin
+				currentchar := 83;
+				//currentchar := 0;
+			end
+			else
 			if currentchar = 83 then begin
 				currentchar := 58;
 			end;
 			
-			if currentchar = 108 then begin
-				currentchar := 83;
-			end;
-			
-			colormemory[offset] := StarfieldColours[colourindex];
+			colormemory := AddressTable( #caddr, col, row );
+			colormemory[0] := StarfieldColours[colourindex];
 	
-			row += 1;
+			inc(row);
 			
 		end;
 		
-		colourindex += 1;
+		inc(colourindex);
 		
 		if colourindex > 19 then begin
 			colourindex := 0;
 		end;
 		
-		col += 1;
+		inc(col);
 		
 	end;
 	
-	ScreenOn();
+	//ScreenOn();
 	
 end;
 
 
 begin
-	
-	definescreen();
+
+    SCREEN_BG_COL:=BLACK;
+    SCREEN_FG_COL:=BLACK;
+    
 	copycharsetfromrom(CharSetLoc);
+	definescreen();
+
+
 	// todo clear chars
 	CreateStarScreen();
 	Loop(); 
