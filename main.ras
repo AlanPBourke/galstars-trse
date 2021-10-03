@@ -2,19 +2,15 @@ program C64Project;
 var
 	
 	RasterCount : byte;
-	Tempwork : byte;
-	StarfieldPtr : integer;
-	StarfieldPtr2 : integer;
-	StarfieldPtr3 : integer;
-	StarfieldPtr4 : integer;
-
+	Tempwork : pointer;
+	
 	const Star1Shape : byte = %00000011;
 	const Star2Shape : byte = %00001100; 
 	const Star3Shape : byte = %00110000;
 	const Star4Shape : byte = %11000000;
 	
-	const Border : address = $D020;
-	const Backgr : address = $D021;
+	//const Border : address = $D020;
+	//const Backgr : address = $D021;
 	
 	const RasterLine : address = $D012;
 	const CharSetLoc : address = $3000;
@@ -37,6 +33,11 @@ var
 
 	const StaticStar1 : address = $3250; // 2 Locations for blinking static stars
 	const StaticStar2 : address = $31E0;
+	
+	StarfieldPtr : integer;
+	StarfieldPtr2 : integer;
+	StarfieldPtr3 : integer;
+	StarfieldPtr4 : integer;
 
 	StarfieldRow : array[40] of byte = (058,092,073,064,091,062,093,081,066,094,086,059,079,087,080,071,076,067,082,095,100,078,099,060,075,063,084,065,083,096,068,088,074,061,090,098,085,101,097,077);
 	StarfieldColours : array[20] of byte = (14,10,12,15,14,13,12,11,10,14,14,10,14,15,14,13,12,11,10,12);
@@ -71,7 +72,7 @@ begin
 			inc(currentchar);
 			
 			// 83 = heart, 58 = colon
-			if currentchar = 108 then begin
+			if currentchar = 107 then begin
 				currentchar := 83;
 				//currentchar := 0;
 			end
@@ -101,19 +102,53 @@ begin
 	
 end;
 
+Procedure DoStarfield();
+	var bp : ^byte;		
+begin
+	
+	StarfieldPtr := 0;
+	//StarfieldPtr2 := 0;
+	//StarfieldPtr3 := 0;
+	//StarfieldPtr4 := 0;
+	Tempwork := #CharSetPos + StarfieldPtr;
+	Tempwork[0] := 0;
+	
+	if RasterCount & 1 then begin
+		inc(StarfieldPtr);
+		bp := #StarfieldPtr;
+		bp[0] := bp[0] | Star1Shape;
+		if StarfieldPtr = Star1Limit then begin
+			StarfieldPtr := Star1Reset;
+		end;
+	end;
+	
+end;
 
 begin
-
+	
     SCREEN_BG_COL:=BLACK;
     SCREEN_FG_COL:=BLACK;
     
-	copycharsetfromrom(CharSetLoc);
+    SetCharsetLocation(CharSetLoc);
+	CopyCharsetFromRom(CharSetLoc);
 	definescreen();
 
-
+	Tempwork := #CharSetLoc;
+	Tempwork[58] := 255;
 	// todo clear chars
 	CreateStarScreen();
-	Loop(); 
+	
+	StarfieldPtr := Star1Init;
+	
+	repeat
+		WaitForRaster(255);
+		//moveto(4,5,$04);
+		//printnumber(RasterCount);
+		inc(RasterCount);
+		DoStarfield();
+	until Keypressed(KEY_SPACE) = 1;
+		
+	//Loop(); 
 	
 end.
 
