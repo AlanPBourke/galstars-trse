@@ -42,6 +42,8 @@ var
 	StarfieldRow : array[40] of byte = (058,092,073,064,091,062,093,081,066,094,086,059,079,087,080,071,076,067,082,095,100,078,099,060,075,063,084,065,083,096,068,088,074,061,090,098,085,101,097,077);
 	StarfieldColours : array[20] of byte = (14,10,12,15,14,13,12,11,10,14,14,10,14,15,14,13,12,11,10,12);
 	
+	 //charset: IncBin("resources/charset.bin", CharSetLoc);
+	
 procedure CreateStarScreen();
 	var
 		currentchar : byte;
@@ -103,52 +105,60 @@ begin
 end;
 
 Procedure DoStarfield();
-	var bp : ^byte;		
+	var bp : pointer;		
 begin
-	
-	StarfieldPtr := 0;
+
+	//StarfieldPtr := 0;
 	//StarfieldPtr2 := 0;
 	//StarfieldPtr3 := 0;
 	//StarfieldPtr4 := 0;
-	Tempwork := #CharSetPos + StarfieldPtr;
+	Tempwork := #Star1Init + StarfieldPtr;		// Starts at Star1Init
 	Tempwork[0] := 0;
 	
-	if RasterCount & 1 then begin
-		inc(StarfieldPtr);
+	//if RasterCount & 1 then begin
+		StarfieldPtr += 1;
 		bp := #StarfieldPtr;
 		bp[0] := bp[0] | Star1Shape;
 		if StarfieldPtr = Star1Limit then begin
 			StarfieldPtr := Star1Reset;
 		end;
-	end;
+	//end;
 	
+end;
+
+interrupt MainRaster();
+begin
+	startirq(0);
+	inc(RasterCount);
+	DoStarfield();
+	closeirq();
 end;
 
 begin
 	
+	SetMemoryConfig(1, 0, 0);	//	IO area visible at $D000-$DFFF, RAM visible at $A000-$BFFF (NO BASIC) and RAM visible at $E000-$FFFF (NO KERNAL). This is the typical memory configuration for demo/game development. 
+	
     SCREEN_BG_COL:=BLACK;
     SCREEN_FG_COL:=BLACK;
     
+    DefineScreen();
     SetCharsetLocation(CharSetLoc);
-	CopyCharsetFromRom(CharSetLoc);
-	definescreen();
-
-	Tempwork := #CharSetLoc;
-	Tempwork[58] := 255;
+ 	CopyCharsetFromRom(CharSetLoc);
+	
 	// todo clear chars
 	CreateStarScreen();
 	
-	StarfieldPtr := Star1Init;
+	//StarfieldPtr := Star1Init;
 	
-	repeat
-		WaitForRaster(255);
-		//moveto(4,5,$04);
-		//printnumber(RasterCount);
-		inc(RasterCount);
-		DoStarfield();
-	until Keypressed(KEY_SPACE) = 1;
-		
-	//Loop(); 
+//	repeat
+//		WaitForRaster(255);
+//WaitForVerticalBlank();
+//		inc(RasterCount);
+
+//	until Keypressed(KEY_SPACE) = 1;
+
+	StartRasterChain(MainRaster(), 0, 0);
+	Loop(); 
 	
 end.
 
