@@ -1,8 +1,8 @@
 program C64Project;
 var
 	
-	RasterCount : byte;
-	Tempwork : pointer;
+	RasterCount : integer;
+	Tempwork : pointer of integer;
 	
 	const Star1Shape : byte = %00000011;
 	const Star2Shape : byte = %00001100; 
@@ -16,7 +16,8 @@ var
 	const CharSetLoc : address = $3000;
 	
 	const Star1Init  : address = $31D0;	// Init address for each star, CHAR_RAM plus offset
-	const Star1Limit : address = $3298;	// Limit for each star
+	
+   const Star1Limit : address = $3298;	// Limit for each star
 	const Star1Reset : address = $31D0;	// Reset address for each star
 
 	const Star2Init : address = $3298;
@@ -34,7 +35,7 @@ var
 	const StaticStar1 : address = $3250; // 2 Locations for blinking static stars
 	const StaticStar2 : address = $31E0;
 	
-	StarfieldPtr : integer;
+	StarfieldPtr : pointer;
 	StarfieldPtr2 : integer;
 	StarfieldPtr3 : integer;
 	StarfieldPtr4 : integer;
@@ -43,6 +44,7 @@ var
 	StarfieldColours : array[20] of byte = (14,10,12,15,14,13,12,11,10,14,14,10,14,15,14,13,12,11,10,12);
 	
 	 //charset: IncBin("resources/charset.bin", CharSetLoc);
+ 
 	
 procedure CreateStarScreen();
 	var
@@ -101,25 +103,20 @@ begin
 	end;
 	
 	//ScreenOn();
-	
+
 end;
 
 Procedure DoStarfield();
-	var bp : pointer;		
+	//var Tempwork : pointer;		
 begin
 
-	//StarfieldPtr := 0;
-	//StarfieldPtr2 := 0;
-	//StarfieldPtr3 := 0;
-	//StarfieldPtr4 := 0;
-	Tempwork := #Star1Init + StarfieldPtr;		// Starts at Star1Init
-	Tempwork[0] := 0;
-	
+	StarfieldPtr[0] := 0;
 	//if RasterCount & 1 then begin
-		StarfieldPtr += 1;
-		bp := #StarfieldPtr;
-		bp[0] := bp[0] | Star1Shape;
+		Inc(StarfieldPtr);
+		StarfieldPtr[0] := StarfieldPtr[0] | Star1Shape;
+		
 		if StarfieldPtr = Star1Limit then begin
+
 			StarfieldPtr := Star1Reset;
 		end;
 	//end;
@@ -128,36 +125,36 @@ end;
 
 interrupt MainRaster();
 begin
-	startirq(0);
+
+	StartIRQ(0);
+	Inc(StarfieldPtr);
 	inc(RasterCount);
-	DoStarfield();
-	closeirq();
+   DoStarfield();
+
+	CloseIRQ();
 end;
 
 begin
 	
-	SetMemoryConfig(1, 0, 0);	//	IO area visible at $D000-$DFFF, RAM visible at $A000-$BFFF (NO BASIC) and RAM visible at $E000-$FFFF (NO KERNAL). This is the typical memory configuration for demo/game development. 
-	
+	 SetMemoryConfig(1, 0, 0);	//	IO area visible at $D000-$DFFF, RAM visible at $A000-$BFFF (NO BASIC) and RAM visible at $E000-$FFFF (NO KERNAL). This is the typical memory configuration for demo/game development. 
+	 DisableCIAInterrupts();
     SCREEN_BG_COL:=BLACK;
     SCREEN_FG_COL:=BLACK;
     
     DefineScreen();
-    SetCharsetLocation(CharSetLoc);
- 	CopyCharsetFromRom(CharSetLoc);
-	
-	// todo clear chars
-	CreateStarScreen();
-	
-	//StarfieldPtr := Star1Init;
-	
-//	repeat
-//		WaitForRaster(255);
-//WaitForVerticalBlank();
-//		inc(RasterCount);
+   SetCharsetLocation(CharSetLoc);
 
-//	until Keypressed(KEY_SPACE) = 1;
+ 	 CopyCharsetFromRom(CharSetLoc);
+ // todo clear chars
+	 CreateStarScreen();
+	 //screenmemory := $0400;
+	//screenmemory[0] := 0;
+	//StarfieldPtr := $3000;
+	//StarfieldPtr[0] := 255;
+	//poke(^$3000,0,255);    
+	StarfieldPtr := Star1Init;
+	StartRasterChain(MainRaster(), $220, 0);
 
-	StartRasterChain(MainRaster(), 0, 0);
 	Loop(); 
 	
 end.
