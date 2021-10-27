@@ -1,24 +1,29 @@
+// https://retrocomputing.stackexchange.com/questions/12678/get-exact-position-of-raster-beam-on-c64-c128
+// VICE monitor io d000
 program C64Project;
 var
 	
-	RasterCount : integer;
-	Tempwork : pointer of integer;
+	const useKernal : byte = 0;				// Flags whether interrupt chain should use the Kernal.
+	RasterCount : byte;						// Keeps track of the number of times the interrupt 
+											// handler that draws the stars has been hit.
 	
-	const Star1Shape : byte = %00000011;
-	const Star2Shape : byte = %00001100; 
+	const Star1Shape : byte = %00000011;		// Star shapes - a bit pattern representing one 
+	const Star2Shape : byte = %00001100; 	// byte in an 8-byte character.
 	const Star3Shape : byte = %00110000;
 	const Star4Shape : byte = %11000000;
 	
-	//const Border : address = $D020;
-	//const Backgr : address = $D021;
+	const CharSetLoc : address = $3000;		// The location in RAM to which the ROM-based
+											// character set will be copied.
 	
-	const RasterLine : address = $D012;
-	const CharSetLoc : address = $3000;
-	
-	const Star1Init  : address = $31D0;	// Init address for each star, CHAR_RAM plus offset
-	
-   const Star1Limit : address = $3298;	// Limit for each star
-	const Star1Reset : address = $31D0;	// Reset address for each star
+	const Star1Init  : address = $31D0;		// Init address for each star, CharSetLoc plus offset
+											// For example:
+											// CharsetLoc = $3000 = 12288 and Star1Init = $31D0 = 12752
+											// 12752 - 12288 = 464. There are 8 bytes per char, so 464/8 = 58
+											// This corresponds to the first byte of the ':' character in the 
+										    // C64 PETSCII character set (https://www.c64-wiki.com/wiki/PETSCII)
+											
+    const Star1Limit : address = $3298;		// Limit for Star 1. This is the last byte in the 'S' character.
+	const Star1Reset : address = $31D0;		// Reset address for star 1. 
 
 	const Star2Init : address = $3298;
 	const Star2Limit : address = $3360; 	// Once limit is reached, they are reset
@@ -35,17 +40,17 @@ var
 	const StaticStar1 : address = $3250; // 2 Locations for blinking static stars
 	const StaticStar2 : address = $31E0;
 	
-	StarfieldPtr : pointer;
-	StarfieldPtr2 : integer;
-	StarfieldPtr3 : integer;
-	StarfieldPtr4 : integer;
+	StarfieldPtr : pointer of integer;
+	StarfieldPtr2 : pointer of integer;
+	StarfieldPtr3 : pointer of integer;
+	StarfieldPtr4 : pointer of integer;
 
 	StarfieldRow : array[40] of byte = (058,092,073,064,091,062,093,081,066,094,086,059,079,087,080,071,076,067,082,095,100,078,099,060,075,063,084,065,083,096,068,088,074,061,090,098,085,101,097,077);
 	StarfieldColours : array[20] of byte = (14,10,12,15,14,13,12,11,10,14,14,10,14,15,14,13,12,11,10,12);
 	
-	 //charset: IncBin("resources/charset.bin", CharSetLoc);
- 
-	
+	StaticStarBlink : byte;
+ 	StaticStarPtr : pointer of integer;
+ 	
 procedure CreateStarScreen();
 	var
 		currentchar : byte;
@@ -53,8 +58,8 @@ procedure CreateStarScreen();
 		//offset : integer;
 		col : byte;
 		row : byte;
-    	saddr : array[25] of integer;
-    	caddr : array[25] of integer;		
+    		saddr : array[25] of integer;
+    		caddr : array[25] of integer;		
 begin
 	
 	//ScreenOff();	
@@ -101,59 +106,120 @@ begin
 		inc(col);
 		
 	end;
-	
-	//ScreenOn();
 
 end;
 
+Procedure ClearCharacterSet();
+	var
+		charsetptr : pointer of integer;
+		counter : integer;
+begin
+	charsetptr := #CharSetLoc;
+	for counter := 0 to 2048 do begin
+		charsetptr[0] := 0;
+		inc(charsetptr);
+	end;
+end;
+
 Procedure DoStarfield();
-	//var Tempwork : pointer;		
+	
 begin
 
-	StarfieldPtr[0] := 0;
-	//if RasterCount & 1 then begin
+	// -- Star 1 updates every other frame.
+	if (RasterCount & 1) = 1 then begin
+		StarfieldPtr[0] := 0;
 		Inc(StarfieldPtr);
 		StarfieldPtr[0] := StarfieldPtr[0] | Star1Shape;
-		
-		if StarfieldPtr = Star1Limit then begin
-
-			StarfieldPtr := Star1Reset;
+		if StarfieldPtr = #Star1Limit then begin
+			StarfieldPtr := #Star1Reset;
 		end;
-	//end;
+		
+	end;
+
+	// -- Star 2 updates every frame.
+	StarfieldPtr2[0] := 0;
+	Inc(StarfieldPtr2);
+	if StarfieldPtr2 = #Star2Limit then begin
+		StarfieldPtr2 := #Star2Reset;
+	end;	
+	StarfieldPtr2[0] := StarfieldPtr2[0] | Star2Shape;
+
+	// -- Star 3 updates every other frame.
+	if (RasterCount & 1) = 1 then begin
+		StarfieldPtr3[0] := 0;
+		Inc(StarfieldPtr3);
+		StarfieldPtr3[0] := StarfieldPtr3[0] | Star3Shape;
+		if StarfieldPtr3 = #Star3Limit then begin
+			StarfieldPtr3 := #Star3Reset;
+		end;
+	end;
+
+	// -- Star 4 updates two pixels down every frame.
+	StarfieldPtr4[0] := 0;
+	Inc(StarfieldPtr4);
+	Inc(StarfieldPtr4);
+	StarfieldPtr4[0] := StarfieldPtr4[0] | Star4Shape;
+	
+	if StarfieldPtr4 = #Star4Limit then begin
+		StarfieldPtr4 := #Star4Reset;
+	end;
+	
+	StaticStarPtr := #StaticStar1;
+	if RasterCount < 230 then begin
+		StaticStarPtr[0] := StaticStarPtr[0] | Star4Shape;
+	end
+	else begin
+		StaticStarPtr[0] := 0;
+	end;
+	
+	StaticStarBlink := RasterCount | $80;
+	
+	StaticStarPtr := #StaticStar2;
+	if RasterCount < 230 then begin
+		StaticStarPtr[0] := StaticStarPtr[0] | Star4Shape;
+	end
+	else begin
+		StaticStarPtr[0] := 0;
+	end;	
 	
 end;
 
 interrupt MainRaster();
 begin
 
-	StartIRQ(0);
-	Inc(StarfieldPtr);
+	StartIRQ(useKernal);			/// All code must be between StartIrq\CloseIrq
+	//Inc(StarfieldPtr);
 	inc(RasterCount);
-   DoStarfield();
 
+	//moveto(10,10,$04);
+	//printnumber(RasterCount);
+
+    DoStarfield();
 	CloseIRQ();
+
 end;
 
 begin
 	
-	 SetMemoryConfig(1, 0, 0);	//	IO area visible at $D000-$DFFF, RAM visible at $A000-$BFFF (NO BASIC) and RAM visible at $E000-$FFFF (NO KERNAL). This is the typical memory configuration for demo/game development. 
-	 DisableCIAInterrupts();
+	DisableCIAInterrupts();
     SCREEN_BG_COL:=BLACK;
     SCREEN_FG_COL:=BLACK;
     
     DefineScreen();
-   SetCharsetLocation(CharSetLoc);
 
- 	 CopyCharsetFromRom(CharSetLoc);
- // todo clear chars
-	 CreateStarScreen();
-	 //screenmemory := $0400;
-	//screenmemory[0] := 0;
-	//StarfieldPtr := $3000;
-	//StarfieldPtr[0] := 255;
-	//poke(^$3000,0,255);    
-	StarfieldPtr := Star1Init;
-	StartRasterChain(MainRaster(), $220, 0);
+    SetCharsetLocation(CharSetLoc);
+ 	CopyCharsetFromRom(CharSetLoc);
+
+	CreateStarScreen();
+	ClearCharacterSet();
+	  
+	StarfieldPtr := #Star1Init;
+	StarfieldPtr2 := #Star2Init;
+	StarfieldPtr3 := #Star3Init;
+	StarfieldPtr4 := #Star4Init;
+	
+	SetMemoryConfig(1, 0, 0);	//	IO area visible at $D000-$DFFF, RAM visible at $A000-$BFFF (NO BASIC) and RAM visible at $E000-$FFFF (NO KERNAL). This is the typical memory configuration for demo/game development. 
+	StartRasterChain(MainRaster(), $DC, useKernal);
 
 	Loop(); 
 	
