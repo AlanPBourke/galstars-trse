@@ -32,8 +32,7 @@ programme (see link below), and this is an Turbo Rascal recreation of that.
  ---------------------------------------------------------------------------------------------------------------------------------
  https://retrocomputing.stackexchange.com/questions/12678/get-exact-position-of-raster-beam-on-c64-c128
  
- VICE monitor io d000
- 
+
  https://retrocomputing.stackexchange.com/questions/7528/commodore-8-bit-character-sets/8278
  
  Jason Aldred's original Galencia starfield extracted to a standalone program.
