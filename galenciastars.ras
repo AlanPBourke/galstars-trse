@@ -1,6 +1,13 @@
-// https://retrocomputing.stackexchange.com/questions/12678/get-exact-position-of-raster-beam-on-c64-c128
-// VICE monitor io d000
-program C64Project;
+//
+// galenciastars
+//
+// By Alan Bourke in 2021 using Turbo Rascal.
+//
+// See !readme.txt
+//
+
+//program C64Project;
+program GalenciaStars;
 var
 	
 	const useKernal : byte = 0;				// Flags whether interrupt chain should use the Kernal.
@@ -11,9 +18,10 @@ var
 	const Star2Shape : byte = %00001100; 	// byte in an 8-byte character.
 	const Star3Shape : byte = %00110000;
 	const Star4Shape : byte = %11000000;
+	const StarBShape : byte = %00010000;
 	
 	const CharSetLoc : address = $3000;		// The location in RAM to which the ROM-based
-											// character set will be copied.
+																// character set will be copied.
 	
 	const Star1Init  : address = $31D0;		// Init address for each star, CharSetLoc plus offset
 											// For example:
@@ -25,8 +33,8 @@ var
     const Star1Limit : address = $3298;		// Limit for Star 1. This is the last byte in the 'S' character.
 	const Star1Reset : address = $31D0;		// Reset address for star 1. 
 
-	const Star2Init : address = $3298;
-	const Star2Limit : address = $3360; 	// Once limit is reached, they are reset
+	const Star2Init : address = $3298;		// As per star 1.
+	const Star2Limit : address = $3360; 		
 	const Star2Reset : address = $3298;
 
 	const Star3Init : address = $3240;
@@ -37,20 +45,31 @@ var
 	const Star4Limit : address = $3360;
 	const Star4Reset : address = $3298;
 
-	const StaticStar1 : address = $3250; // 2 Locations for blinking static stars
+	const StaticStar1 : address = $3250; 	// 2 Locations for blinking static stars
 	const StaticStar2 : address = $31E0;
 	
-	StarfieldPtr : pointer of integer;
-	StarfieldPtr2 : pointer of integer;
+	StarfieldPtr : pointer of integer;		// These pointers track the current byte offset into the RAM
+	StarfieldPtr2 : pointer of integer;		// character set for the star in question.
 	StarfieldPtr3 : pointer of integer;
 	StarfieldPtr4 : pointer of integer;
-
-	StarfieldRow : array[40] of byte = (058,092,073,064,091,062,093,081,066,094,086,059,079,087,080,071,076,067,082,095,100,078,099,060,075,063,084,065,083,096,068,088,074,061,090,098,085,101,097,077);
-	StarfieldColours : array[20] of byte = (14,10,12,15,14,13,12,11,10,14,14,10,14,15,14,13,12,11,10,12);
-	
-	StaticStarBlink : byte;
  	StaticStarPtr : pointer of integer;
- 	
+
+	StaticStarBlink : byte;					// Flag used to toggle the static blinking stars on and off.
+
+	// One screen row of 40 PETSCII characters.
+	StarfieldRow : array[40] of byte = (058,092,073,064,091,062,093,081,066,094,
+									   086,059,079,087,080,071,076,067,082,095,
+									   100,078,099,060,075,063,084,065,083,096,
+									   068,088,074,061,090,098,085,101,097,077);
+
+	// The colour values corresponding to the characters.
+	StarfieldColours : array[20] of byte = (14,10,12,15,14,13,12,11,10,14,
+										   14,10,14,15,14,13,12,11,10,12);
+	
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Fills the entire character screen with the characters and colours defined in StarfieldRow\StarfieldColours.
+// ---------------------------------------------------------------------------------------------------------------------------------
 procedure CreateStarScreen();
 	var
 		currentchar : byte;
@@ -62,10 +81,9 @@ procedure CreateStarScreen();
     		caddr : array[25] of integer;		
 begin
 	
-	//ScreenOff();	
 	CreateAddressTable( #saddr, $0400, 40, 25 );   // $0400 screen address, 40 characters per column, 25 rows
     CreateAddressTable( #caddr, $D800, 40, 25 );   // $D800 color address, 40 characters per column, 25 rows
-	//https://retrocomputing.stackexchange.com/questions/7528/commodore-8-bit-character-sets/8278
+	
 	col := 0;
 	while col <= 39 do begin
 		
@@ -109,6 +127,9 @@ begin
 
 end;
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Blanks the character set in RAM.
+// ---------------------------------------------------------------------------------------------------------------------------------
 Procedure ClearCharacterSet();
 	var
 		charsetptr : pointer of integer;
@@ -121,6 +142,9 @@ begin
 	end;
 end;
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Update the starfield by redefining bytes in the character set once per frame.
+// ---------------------------------------------------------------------------------------------------------------------------------
 Procedure DoStarfield();
 	
 begin
@@ -164,9 +188,10 @@ begin
 		StarfieldPtr4 := #Star4Reset;
 	end;
 	
+	// -- Two static blinking stars.
 	StaticStarPtr := #StaticStar1;
 	if RasterCount < 230 then begin
-		StaticStarPtr[0] := StaticStarPtr[0] | Star4Shape;
+		StaticStarPtr[0] := StaticStarPtr[0] | StarBShape;
 	end
 	else begin
 		StaticStarPtr[0] := 0;
@@ -176,7 +201,7 @@ begin
 	
 	StaticStarPtr := #StaticStar2;
 	if RasterCount < 230 then begin
-		StaticStarPtr[0] := StaticStarPtr[0] | Star4Shape;
+		StaticStarPtr[0] := StaticStarPtr[0] | StarBShape;
 	end
 	else begin
 		StaticStarPtr[0] := 0;
@@ -184,13 +209,16 @@ begin
 	
 end;
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Main raster interrupt routine.
+// ---------------------------------------------------------------------------------------------------------------------------------
 interrupt MainRaster();
 begin
 
-	StartIRQ(useKernal);			/// All code must be between StartIrq\CloseIrq
-	//Inc(StarfieldPtr);
+	StartIRQ(useKernal);					// All code must be between StartIrq\CloseIrq
 	inc(RasterCount);
 
+	// Debug
 	//moveto(10,10,$04);
 	//printnumber(RasterCount);
 
@@ -199,9 +227,13 @@ begin
 
 end;
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Main program loop. Turn CIA interrupts off, copy the character set from ROM into RAM and tell the machine to look at CharSetLoc
+// for its character set, initialise the pointers and start the raster chain off.
+// ---------------------------------------------------------------------------------------------------------------------------------
 begin
 	
-	DisableCIAInterrupts();
+	DisableCIAInterrupts();				// Stop handling timer, joystick, keyboard ...
     SCREEN_BG_COL:=BLACK;
     SCREEN_FG_COL:=BLACK;
     
@@ -211,6 +243,8 @@ begin
  	CopyCharsetFromRom(CharSetLoc);
 
 	CreateStarScreen();
+	
+	// -- Comment this line out to see the effect of the character set being overwritten.
 	ClearCharacterSet();
 	  
 	StarfieldPtr := #Star1Init;
@@ -218,7 +252,9 @@ begin
 	StarfieldPtr3 := #Star3Init;
 	StarfieldPtr4 := #Star4Init;
 	
-	SetMemoryConfig(1, 0, 0);	//	IO area visible at $D000-$DFFF, RAM visible at $A000-$BFFF (NO BASIC) and RAM visible at $E000-$FFFF (NO KERNAL). This is the typical memory configuration for demo/game development. 
+	// IO area visible at $D000-$DFFF, RAM visible at $A000-$BFFF (NO BASIC) and RAM visible at $E000-$FFFF (NO KERNAL). 
+	// This is the typical memory configuration for demo/game development. 
+	SetMemoryConfig(1, 0, 0);	
 	StartRasterChain(MainRaster(), $DC, useKernal);
 
 	Loop(); 
