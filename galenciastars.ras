@@ -13,7 +13,7 @@ var
 	RasterCount : byte;						// Keeps track of the number of times the interrupt 
 											// handler that draws the stars has been hit.
 	
-	const Star1Shape : byte = %00000011;		// Star shapes - a bit pattern representing one 
+	const Star1Shape : byte = %00000011;	// Star shapes - a bit pattern representing one 
 	const Star2Shape : byte = %00001100; 	// byte in an 8-byte character.
 	const Star3Shape : byte = %00110000;
 	const Star4Shape : byte = %11000000;
