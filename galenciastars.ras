@@ -6,7 +6,6 @@
 // See !readme.txt
 //
 
-//program C64Project;
 program GalenciaStars;
 var
 	
@@ -258,6 +257,7 @@ begin
 	StartRasterChain(MainRaster(), $DC, useKernal);
 
 	Loop(); 
+	//  Note: VICE monitor io d000
 	
 end.
 
