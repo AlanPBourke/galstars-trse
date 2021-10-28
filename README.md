@@ -34,7 +34,7 @@ programme (see link below), and this is an Turbo Rascal recreation of that.
  
  VICE monitor io d000
  
- https:retrocomputing.stackexchange.com/questions/7528/commodore-8-bit-character-sets/8278
+ https://retrocomputing.stackexchange.com/questions/7528/commodore-8-bit-character-sets/8278
  
  Jason Aldred's original Galencia starfield extracted to a standalone program.
  https://github.com/Jimmy2x2x/C64-Starfield/blob/master/starfield.asm
